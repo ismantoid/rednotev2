@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Downloader Aman + Rednote Resolver</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,body{background:#0B1221;color:#E6EAF2}
+    .card{background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);border-radius:16px}
+    .btn{background:#22C55E;color:#0B1221;padding:.6rem 1rem;border-radius:12px;font-weight:800}
+    .btn.secondary{background:#2563EB;color:white}
+    .input{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);padding:.7rem .9rem;border-radius:.8rem;width:100%}
+    .muted{opacity:.85}
+    code{background:rgba(255,255,255,.08);padding:.2rem .4rem;border-radius:.4rem}
+  </style>
+</head>
+<body>
+  <header class="max-w-4xl mx-auto px-4 py-6">
+    <div class="text-2xl font-extrabold">Downloader Aman</div>
+    <div class="muted text-sm">Hanya untuk file publik (mp4/webm/jpg/png/wav). Tidak melewati login/DRM. Hormati hak cipta & TOS.</div>
+  </header>
+
+  <main class="max-w-4xl mx-auto px-4 pb-24 space-y-6">
+    <section class="card p-5 space-y-4">
+      <div class="font-bold text-lg">Mode 1 — Direct file</div>
+      <div>
+        <label class="block mb-1 muted">URL file publik</label>
+        <input id="url" class="input" placeholder="https://.../video.mp4">
+      </div>
+      <label class="flex items-center gap-2 text-sm"><input id="agree1" type="checkbox">Saya punya izin untuk mengunduh konten ini.</label>
+      <div class="flex items-center gap-2">
+        <button id="btnCheck" class="btn">Cek File</button>
+        <a id="dlBtn" class="btn" style="display:none" download>Unduh</a>
+      </div>
+      <div id="meta" class="text-sm"></div>
+      <div id="status" class="text-sm"></div>
+    </section>
+
+    <section class="card p-5 space-y-4">
+      <div class="font-bold text-lg">Mode 2 — Link posting Rednote (xhslink.com / xiaohongshu.com)</div>
+      <div>
+        <label class="block mb-1 muted">Tempel link posting</label>
+        <input id="xhs" class="input" placeholder="https://xhslink.com/... atau https://www.xiaohongshu.com/...">
+      </div>
+      <label class="flex items-center gap-2 text-sm"><input id="agree2" type="checkbox">Saya punya izin untuk mengunduh konten ini.</label>
+      <div class="flex items-center gap-2">
+        <button id="btnResolve" class="btn secondary">Resolve Rednote</button>
+      </div>
+      <div id="xhsOut" class="text-sm"></div>
+    </section>
+
+    <section class="card p-5">
+      <div class="font-bold mb-2">Catatan Hukum</div>
+      <p class="muted text-sm">
+        Alat ini <b>tidak</b> mem-bypass login, paywall, atau DRM. Hanya memproses konten yang sudah publik.
+        Pastikan Anda memiliki izin yang sesuai dari pemilik konten.
+      </p>
+    </section>
+  </main>
+
+  <script>
+    const $ = id => document.getElementById(id);
+
+    // Mode 1: direct file
+    $('btnCheck').addEventListener('click', async () => {
+      const url = $('url').value.trim();
+      $('status').textContent = 'Memeriksa...';
+      $('dlBtn').style.display = 'none';
+      if (!url) return $('status').textContent = 'Masukkan URL dulu.';
+      if (!$('agree1').checked) return $('status').textContent = 'Centang pernyataan izin terlebih dahulu.';
+
+      try {
+        const og = await fetch('/api/og?url=' + encodeURIComponent(url)).then(r=>r.json());
+        if (og.ok && (og.title || og.image)) {
+          $('meta').innerHTML = `<div>Judul: ${og.title||'-'}</div>${og.image?`<img src="${og.image}" class="mt-2 rounded max-h-40"/>`:''}`;
+        } else { $('meta').textContent = ''; }
+      } catch {}
+
+      const probe = await fetch('/api/head', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ url }) })
+        .then(r=>r.json()).catch(()=>({ok:false, error:'Gagal cek'}));
+
+      if (!probe.ok) return $('status').textContent = probe.error || 'URL tidak valid / bukan file publik langsung.';
+
+      $('status').textContent = `Siap diunduh. Type: ${probe.contentType||'-'} ${probe.contentLength?('• Size: '+probe.contentLength+' bytes'):''}`;
+      const fname = prompt('Nama file (tanpa ekstensi):', 'rednote-media') || 'download';
+      const dlUrl = `/api/download?url=${encodeURIComponent(url)}&filename=${encodeURIComponent(fname)}`;
+      const a = $('dlBtn'); a.href = dlUrl; a.style.display = 'inline-block';
+    });
+
+    // Mode 2: Rednote resolver
+    $('btnResolve').addEventListener('click', async () => {
+      const url = $('xhs').value.trim();
+      $('xhsOut').textContent = 'Memproses...';
+      if (!url) return $('xhsOut').textContent = 'Tempel link postingan dulu.';
+      if (!$('agree2').checked) return $('xhsOut').textContent = 'Centang pernyataan izin terlebih dahulu.';
+
+      const data = await fetch('/api/resolve/rednote?url=' + encodeURIComponent(url)).then(r=>r.json()).catch(()=>({ok:false, error:'Gagal'}));
+      if (!data.ok) return $('xhsOut').textContent = data.error || 'Gagal resolve.';
+
+      let html = '';
+      if (data.title) html += `<div class="mb-2"><b>Judul:</b> ${data.title}</div>`;
+      if (data.cover) html += `<img class="rounded mb-2 max-h-48" src="${data.cover}" />`;
+      if (data.media?.length) {
+        html += '<div class="mb-2"><b>Media ditemukan:</b></div>';
+        data.media.forEach((m,i)=>{
+          const dl = `/api/download?url=${encodeURIComponent(m.url)}&filename=${encodeURIComponent('rednote-'+(i+1))}&referer=${encodeURIComponent(data.page)}`;
+          html += `<div class="mb-2 p-2 rounded bg-white/5 border border-white/10">
+                     <div class="text-xs muted">${m.type}</div>
+                     <div class="truncate">${m.url}</div>
+                     <a class="btn mt-2 inline-block" href="${dl}">Unduh via server</a>
+                   </div>`;
+        });
+      }
+      $('xhsOut').innerHTML = html || 'Tidak ada media langsung yang ditemukan.';
+    });
+  </script>
+</body>
+</html>
