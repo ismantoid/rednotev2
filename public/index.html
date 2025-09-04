@@ -16,7 +16,7 @@
 <body>
   <header class="max-w-2xl mx-auto px-4 py-6">
     <div class="text-2xl font-extrabold">Rednote Downloader</div>
-    <div class="muted text-sm">Unduh media dari link publik Rednote (xhslink.com / xiaohongshu.com). Tidak melewati login/DRM.</div>
+    <div class="muted text-sm">Unduh media dari link publik Rednote (xhslink.com / xiaohongshu.com).</div>
   </header>
 
   <main class="max-w-2xl mx-auto px-4 pb-24 space-y-6">
@@ -25,19 +25,14 @@
       <div>
         <input id="xhs" class="input" placeholder="https://xhslink.com/... atau https://www.xiaohongshu.com/...">
       </div>
-      <label class="flex items-center gap-2 text-sm"><input id="agree" type="checkbox">Saya punya izin untuk mengunduh konten ini.</label>
+      <label class="flex items-center gap-2 text-sm">
+        <input id="agree" type="checkbox">
+        Hanya untuk penggunaan pribadi
+      </label>
       <div class="flex items-center gap-2">
         <button id="btnDownload" class="btn">Download Rednote</button>
       </div>
       <div id="xhsOut" class="text-sm"></div>
-    </section>
-
-    <section class="card p-5">
-      <div class="font-bold mb-2">Catatan Hukum</div>
-      <p class="muted text-sm">
-        Alat ini <b>tidak</b> mem-bypass login, paywall, atau DRM. Hanya memproses konten yang sudah publik.
-        Pastikan Anda memiliki izin yang sesuai dari pemilik konten.
-      </p>
     </section>
   </main>
 
@@ -48,9 +43,10 @@
       const url = $('xhs').value.trim();
       $('xhsOut').textContent = 'Memproses...';
       if (!url) return $('xhsOut').textContent = 'Tempel link postingan dulu.';
-      if (!$('agree').checked) return $('xhsOut').textContent = 'Centang pernyataan izin terlebih dahulu.';
+      if (!$('agree').checked) return $('xhsOut').textContent = 'Centang kotak penggunaan pribadi.';
 
-      const data = await fetch('/api/resolve/rednote?url=' + encodeURIComponent(url)).then(r=>r.json()).catch(()=>({ok:false, error:'Gagal'}));
+      const data = await fetch('/api/resolve/rednote?url=' + encodeURIComponent(url))
+        .then(r=>r.json()).catch(()=>({ok:false, error:'Gagal'}));
       if (!data.ok) return $('xhsOut').textContent = data.error || 'Gagal resolve.';
 
       let html = '';
